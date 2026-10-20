@@ -44,16 +44,63 @@ if "data_march" not in st.session_state:
         {"年份": [2024, 2025, 2026], "全家補運人數": [130, 140, 150], "補財庫人數": [80, 90, 100]}
     )
 
+personal_count_columns = [
+    "六月補運人數",
+    "九月補運人數",
+    "六月補財庫人數",
+    "九月補財庫人數",
+]
+
 if "data_personal" not in st.session_state:
     st.session_state.data_personal = pd.DataFrame(
         {
             "年份": [2024, 2025, 2026],
-            "補運月份": ["六月補運", "九月補運", "六月補運"],
-            "補運人數": [120, 135, 150],
-            "補財庫月份": ["六月補運", "九月補運", "六月補運"],
-            "補財庫人數": [85, 95, 100],
+            "六月補運人數": [120, 0, 150],
+            "九月補運人數": [0, 135, 0],
+            "六月補財庫人數": [85, 0, 100],
+            "九月補財庫人數": [0, 95, 0],
         }
     )
+elif not set(personal_count_columns).issubset(
+    st.session_state.data_personal.columns
+):
+    legacy_columns = {
+        "年份",
+        "補運月份",
+        "補運人數",
+        "補財庫月份",
+        "補財庫人數",
+    }
+    if not legacy_columns.issubset(st.session_state.data_personal.columns):
+        raise ValueError("個人補運資料欄位不完整，無法轉換舊資料。")
+
+    legacy_personal = st.session_state.data_personal
+    migrated_personal = pd.DataFrame(
+        {
+            "年份": legacy_personal["年份"],
+            "六月補運人數": 0,
+            "九月補運人數": 0,
+            "六月補財庫人數": 0,
+            "九月補財庫人數": 0,
+        }
+    )
+    for month, count_column in (
+        ("六月補運", "六月補運人數"),
+        ("九月補運", "九月補運人數"),
+    ):
+        matching_years = legacy_personal["補運月份"] == month
+        migrated_personal.loc[matching_years, count_column] = (
+            legacy_personal.loc[matching_years, "補運人數"]
+        )
+    for months, count_column in (
+        (("六月補運", "六月補財庫"), "六月補財庫人數"),
+        (("九月補運", "九月補財庫"), "九月補財庫人數"),
+    ):
+        matching_years = legacy_personal["補財庫月份"].isin(months)
+        migrated_personal.loc[matching_years, count_column] = (
+            legacy_personal.loc[matching_years, "補財庫人數"]
+        )
+    st.session_state.data_personal = migrated_personal
 
 # 建立五大功能分頁
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
@@ -392,36 +439,64 @@ with tab4:
 with tab5:
   st.header("🧧 個人補運及補財庫報名管理")
 
+  year_p = st.number_input(
+      "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_pe"
+  )
+  df_p = st.session_state.data_personal
+  existing_personal = df_p.loc[df_p["年份"] == year_p]
+  current_personal = (
+      existing_personal.iloc[0]
+      if not existing_personal.empty
+      else pd.Series({column: 0 for column in personal_count_columns})
+  )
+
   with st.form("form_personal"):
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-      year_p = st.number_input(
-          "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_pe"
+      p_june_fortune = st.number_input(
+          "六月補運人數",
+          min_value=0,
+          value=int(current_personal["六月補運人數"]),
+          key=f"p_june_fortune_{year_p}",
       )
     with col2:
-      st.markdown("**補運設定**")
-      p_fortune_month = st.selectbox("補運下拉選單", ["六月補運", "九月補運"])
-      p_fortune_count = st.number_input("補運人數", min_value=0, value=160)
+      p_september_fortune = st.number_input(
+          "九月補運人數",
+          min_value=0,
+          value=int(current_personal["九月補運人數"]),
+          key=f"p_september_fortune_{year_p}",
+      )
     with col3:
-      st.markdown("**補財庫設定**")
-      p_wealth_month = st.selectbox("補財庫下拉選單", ["六月補財庫", "九月補財庫"])
-      p_wealth_count = st.number_input("補財庫人數", min_value=0, value=110)
+      p_june_wealth = st.number_input(
+          "六月補財庫人數",
+          min_value=0,
+          value=int(current_personal["六月補財庫人數"]),
+          key=f"p_june_wealth_{year_p}",
+      )
+    with col4:
+      p_september_wealth = st.number_input(
+          "九月補財庫人數",
+          min_value=0,
+          value=int(current_personal["九月補財庫人數"]),
+          key=f"p_september_wealth_{year_p}",
+      )
 
     submitted_p = st.form_submit_button("新增 / 更新個人補運資料")
     if submitted_p:
-      df_p = st.session_state.data_personal
       if year_p in df_p["年份"].values:
-        df_p.loc[df_p["年份"] == year_p, "補運月份"] = p_fortune_month
-        df_p.loc[df_p["年份"] == year_p, "補運人數"] = p_fortune_count
-        df_p.loc[df_p["年份"] == year_p, "補財庫月份"] = p_wealth_month
-        df_p.loc[df_p["年份"] == year_p, "補財庫人數"] = p_wealth_count
+        df_p.loc[df_p["年份"] == year_p, personal_count_columns] = [
+            p_june_fortune,
+            p_september_fortune,
+            p_june_wealth,
+            p_september_wealth,
+        ]
       else:
         new_row = pd.DataFrame({
             "年份": [year_p],
-            "補運月份": [p_fortune_month],
-            "補運人數": [p_fortune_count],
-            "補財庫月份": [p_wealth_month],
-            "補財庫人數": [p_wealth_count],
+            "六月補運人數": [p_june_fortune],
+            "九月補運人數": [p_september_fortune],
+            "六月補財庫人數": [p_june_wealth],
+            "九月補財庫人數": [p_september_wealth],
         })
         st.session_state.data_personal = pd.concat(
             [df_p, new_row], ignore_index=True
@@ -439,31 +514,16 @@ with tab5:
   df_personal = st.session_state.data_personal
   fig_personal = make_subplots(specs=[[{"secondary_y": True}]])
   personal_series = [
-      (
-          "補運月份", "補運人數", "六月補運人數", "purple", "solid", False,
-          "六月補運",
-      ),
-      (
-          "補運月份", "補運人數", "九月補運人數", "mediumpurple", "dash",
-          False, "九月補運",
-      ),
-      (
-          "補財庫月份", "補財庫人數", "六月補財庫人數", "teal", "solid",
-          True, "六月補財庫",
-      ),
-      (
-          "補財庫月份", "補財庫人數", "九月補財庫人數", "darkcyan", "dash",
-          True, "九月補財庫",
-      ),
+      ("六月補運人數", "六月補運人數", "purple", "solid", False),
+      ("九月補運人數", "九月補運人數", "mediumpurple", "dash", False),
+      ("六月補財庫人數", "六月補財庫人數", "teal", "solid", True),
+      ("九月補財庫人數", "九月補財庫人數", "darkcyan", "dash", True),
   ]
-  for (
-      month_column, count_column, name, color, dash, secondary_y, month
-  ) in personal_series:
-      month_data = df_personal[df_personal[month_column] == month]
+  for count_column, name, color, dash, secondary_y in personal_series:
       fig_personal.add_trace(
           go.Scatter(
-              x=month_data["年份"],
-              y=month_data[count_column],
+              x=df_personal["年份"],
+              y=df_personal[count_column],
               name=name,
               mode="lines+markers",
               line=dict(color=color, width=3, dash=dash),
