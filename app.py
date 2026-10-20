@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -14,6 +16,51 @@ def configure_year_axis(fig, dataframe):
         ticktext=[str(year) for year in years],
         range=[years[0] - 0.25, years[-1] + 0.25],
     )
+
+
+def configure_y_axes(fig, chart_key, axes):
+    with st.expander("調整Y軸上下限與刻度間距"):
+        for axis_key, title, dataframe, columns, secondary_y in axes:
+            st.markdown(f"**{title}**")
+            values = dataframe[columns].max().max()
+            data_max = 0 if pd.isna(values) else max(0, int(values))
+            default_max = max(50, math.ceil(data_max / 50) * 50 + 50)
+            default_interval = max(1, default_max // 5)
+
+            lower_col, upper_col, interval_col = st.columns(3)
+            with lower_col:
+                lower = st.number_input(
+                    "Y軸下限",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    key=f"{chart_key}_{axis_key}_lower",
+                )
+            with upper_col:
+                upper = st.number_input(
+                    "Y軸上限",
+                    min_value=1,
+                    value=default_max,
+                    step=1,
+                    key=f"{chart_key}_{axis_key}_upper",
+                )
+            with interval_col:
+                interval = st.number_input(
+                    "刻度間距",
+                    min_value=1,
+                    value=default_interval,
+                    step=1,
+                    key=f"{chart_key}_{axis_key}_interval",
+                )
+
+            if upper <= lower:
+                st.error(f"{title}的Y軸上限必須大於下限。")
+                continue
+            fig.update_yaxes(
+                range=[lower, upper],
+                dtick=interval,
+                secondary_y=secondary_y,
+            )
 
 
 # 設定網頁標題與寬度
@@ -182,6 +229,11 @@ with tab1:
       template="plotly_white",
   )
   configure_year_axis(fig_jg, df_jg)
+  configure_y_axes(
+      fig_jg,
+      "jg",
+      [("count", "祭改人數", df_jg, ["祭改人數"], False)],
+  )
   st.plotly_chart(fig_jg, use_container_width=True)
 
 # ==================== 2. 正月光明燈及太歲 ====================
@@ -274,6 +326,14 @@ with tab2:
   fig_light.update_yaxes(title_text="<b>300元光明燈人數</b>", secondary_y=False)
   fig_light.update_yaxes(title_text="<b>500元光明燈人數</b>", secondary_y=True)
   configure_year_axis(fig_light, df_light)
+  configure_y_axes(
+      fig_light,
+      "light",
+      [
+          ("300", "300元光明燈人數", df_light, ["300元光明燈"], False),
+          ("500", "500元光明燈人數", df_light, ["500元光明燈"], True),
+      ],
+  )
   st.plotly_chart(fig_light, use_container_width=True)
 
   # 圖表 2：太歲雙Y軸曲線圖
@@ -312,6 +372,14 @@ with tab2:
   fig_taisu.update_yaxes(title_text="<b>300元太歲人數</b>", secondary_y=False)
   fig_taisu.update_yaxes(title_text="<b>500元太歲人數</b>", secondary_y=True)
   configure_year_axis(fig_taisu, df_light)
+  configure_y_axes(
+      fig_taisu,
+      "taisu",
+      [
+          ("300", "300元太歲人數", df_light, ["300元太歲"], False),
+          ("500", "500元太歲人數", df_light, ["500元太歲"], True),
+      ],
+  )
   st.plotly_chart(fig_taisu, use_container_width=True)
 
 # ==================== 3. 正月年斗 ====================
@@ -405,6 +473,17 @@ with tab3:
       template="plotly_white",
   )
   configure_year_axis(fig_dou, df_dou)
+  configure_y_axes(
+      fig_dou,
+      "dou",
+      [(
+          "count",
+          "年斗人數",
+          df_dou,
+          ["1000元年斗", "3000元年斗", "5000元年斗", "6000元年斗"],
+          False,
+      )],
+  )
   st.plotly_chart(fig_dou, use_container_width=True)
 
 # ==================== 4. 三月全家補運及補財庫 ====================
@@ -478,6 +557,7 @@ with tab4:
           ),
           line=dict(color="goldenrod", width=3, dash="dash"),
           mode="lines+markers",
+          marker=dict(symbol="diamond"),
       ),
       secondary_y=True,
   )
@@ -489,6 +569,14 @@ with tab4:
   fig_march.update_yaxes(title_text="<b>全家補運人數</b>", secondary_y=False)
   fig_march.update_yaxes(title_text="<b>補財庫人數</b>", secondary_y=True)
   configure_year_axis(fig_march, df_march)
+  configure_y_axes(
+      fig_march,
+      "march",
+      [
+          ("fortune", "全家補運人數", df_march, ["全家補運人數"], False),
+          ("wealth", "補財庫人數", df_march, ["補財庫人數"], True),
+      ],
+  )
   st.plotly_chart(fig_march, use_container_width=True)
 
 # ==================== 5. 個人補運及補財庫 ====================
@@ -591,6 +679,7 @@ with tab5:
                   f"年份: %{{customdata}}<br>{name}: %{{y}}<extra></extra>"
               ),
               line=dict(color=color, width=3, dash=dash),
+              marker=dict(symbol="diamond" if secondary_y else "circle"),
           ),
           secondary_y=secondary_y,
       )
@@ -602,4 +691,24 @@ with tab5:
   fig_personal.update_yaxes(title_text="<b>補運人數</b>", secondary_y=False)
   fig_personal.update_yaxes(title_text="<b>補財庫人數</b>", secondary_y=True)
   configure_year_axis(fig_personal, df_personal)
+  configure_y_axes(
+      fig_personal,
+      "personal",
+      [
+          (
+              "fortune",
+              "補運人數",
+              df_personal,
+              ["六月補運人數", "九月補運人數"],
+              False,
+          ),
+          (
+              "wealth",
+              "補財庫人數",
+              df_personal,
+              ["六月補財庫人數", "九月補財庫人數"],
+              True,
+          ),
+      ],
+  )
   st.plotly_chart(fig_personal, use_container_width=True)
