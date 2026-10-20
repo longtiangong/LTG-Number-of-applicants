@@ -56,11 +56,13 @@ def configure_y_axes(fig, chart_key, axes):
             if upper <= lower:
                 st.error(f"{title}的Y軸上限必須大於下限。")
                 continue
-            fig.update_yaxes(
-                range=[lower, upper],
-                dtick=interval,
-                secondary_y=secondary_y,
-            )
+            axis_options = {
+                "range": [lower, upper],
+                "dtick": interval,
+            }
+            if secondary_y is not None:
+                axis_options["secondary_y"] = secondary_y
+            fig.update_yaxes(**axis_options)
 
 
 # 設定網頁標題與寬度
@@ -232,7 +234,7 @@ with tab1:
   configure_y_axes(
       fig_jg,
       "jg",
-      [("count", "祭改人數", df_jg, ["祭改人數"], False)],
+      [("count", "祭改人數", df_jg, ["祭改人數"], None)],
   )
   st.plotly_chart(fig_jg, use_container_width=True)
 
@@ -481,7 +483,7 @@ with tab3:
           "年斗人數",
           df_dou,
           ["1000元年斗", "3000元年斗", "5000元年斗", "6000元年斗"],
-          False,
+          None,
       )],
   )
   st.plotly_chart(fig_dou, use_container_width=True)
