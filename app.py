@@ -404,7 +404,7 @@ with tab5:
       p_fortune_count = st.number_input("補運人數", min_value=0, value=160)
     with col3:
       st.markdown("**補財庫設定**")
-      p_wealth_month = st.selectbox("補財庫下拉選單", ["六月補運", "九月補運"])
+      p_wealth_month = st.selectbox("補財庫下拉選單", ["六月補財庫", "九月補財庫"])
       p_wealth_count = st.number_input("補財庫人數", min_value=0, value=110)
 
     submitted_p = st.form_submit_button("新增 / 更新個人補運資料")
