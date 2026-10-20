@@ -59,7 +59,7 @@ if "data_personal" not in st.session_state:
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
         "1. 正月祭改",
-        "2. 光明燈及太歲",
+        "2. 正月光明燈及太歲",
         "3. 正月年斗",
         "4. 三月全家補運及補財庫",
         "5. 個人補運及補財庫",
