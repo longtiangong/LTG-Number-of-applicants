@@ -149,7 +149,9 @@ with tab1:
   st.dataframe(st.session_state.data_jg, use_container_width=True)
 
   # 畫曲線圖
-  df_jg = st.session_state.data_jg
+  df_jg = st.session_state.data_jg.loc[
+      st.session_state.data_jg["年份"] >= 2026
+  ]
   fig_jg = go.Figure()
   fig_jg.add_trace(
       go.Scatter(
@@ -218,7 +220,9 @@ with tab2:
   st.subheader("📊 光明燈及太歲報名人數總覽表")
   st.dataframe(st.session_state.data_light, use_container_width=True)
 
-  df_light = st.session_state.data_light
+  df_light = st.session_state.data_light.loc[
+      st.session_state.data_light["年份"] >= 2026
+  ]
 
   # 圖表 1：光明燈雙Y軸曲線圖
   fig_light = make_subplots(specs=[[{"secondary_y": True}]])
@@ -321,7 +325,9 @@ with tab3:
   st.subheader("📊 年斗報名人數總覽表")
   st.dataframe(st.session_state.data_dou, use_container_width=True)
 
-  df_dou = st.session_state.data_dou
+  df_dou = st.session_state.data_dou.loc[
+      st.session_state.data_dou["年份"] >= 2026
+  ]
   fig_dou = go.Figure()
   fig_dou.add_trace(
       go.Scatter(
@@ -406,7 +412,9 @@ with tab4:
   st.subheader("📊 三月全家補運及補財庫報名人數總覽表")
   st.dataframe(st.session_state.data_march, use_container_width=True)
 
-  df_march = st.session_state.data_march
+  df_march = st.session_state.data_march.loc[
+      st.session_state.data_march["年份"] >= 2026
+  ]
   fig_march = make_subplots(specs=[[{"secondary_y": True}]])
   fig_march.add_trace(
       go.Scatter(
@@ -511,7 +519,9 @@ with tab5:
   st.subheader("📊 個人補運及補財庫人數總覽表")
   st.dataframe(st.session_state.data_personal, use_container_width=True)
 
-  df_personal = st.session_state.data_personal
+  df_personal = st.session_state.data_personal.loc[
+      st.session_state.data_personal["年份"] >= 2026
+  ]
   fig_personal = make_subplots(specs=[[{"secondary_y": True}]])
   personal_series = [
       ("六月補運人數", "六月補運人數", "purple", "solid", False),
