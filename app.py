@@ -438,24 +438,38 @@ with tab5:
 
   df_personal = st.session_state.data_personal
   fig_personal = make_subplots(specs=[[{"secondary_y": True}]])
-  fig_personal.add_trace(
-      go.Scatter(
-          x=df_personal["年份"],
-          y=df_personal["補運人數"],
-          name="補運人數",
-          line=dict(color="purple", width=3),
+  personal_series = [
+      (
+          "補運月份", "補運人數", "六月補運人數", "purple", "solid", False,
+          "六月補運",
       ),
-      secondary_y=False,
-  )
-  fig_personal.add_trace(
-      go.Scatter(
-          x=df_personal["年份"],
-          y=df_personal["補財庫人數"],
-          name="補財庫人數",
-          line=dict(color="teal", width=3, dash="dash"),
+      (
+          "補運月份", "補運人數", "九月補運人數", "mediumpurple", "dash",
+          False, "九月補運",
       ),
-      secondary_y=True,
-  )
+      (
+          "補財庫月份", "補財庫人數", "六月補財庫人數", "teal", "solid",
+          True, "六月補運",
+      ),
+      (
+          "補財庫月份", "補財庫人數", "九月補財庫人數", "darkcyan", "dash",
+          True, "九月補運",
+      ),
+  ]
+  for (
+      month_column, count_column, name, color, dash, secondary_y, month
+  ) in personal_series:
+      month_data = df_personal[df_personal[month_column] == month]
+      fig_personal.add_trace(
+          go.Scatter(
+              x=month_data["年份"],
+              y=month_data[count_column],
+              name=name,
+              mode="lines+markers",
+              line=dict(color=color, width=3, dash=dash),
+          ),
+          secondary_y=secondary_y,
+      )
   fig_personal.update_layout(
       title="個人補運及補財庫報名人數分佈圖",
       xaxis_title="年份補運",
