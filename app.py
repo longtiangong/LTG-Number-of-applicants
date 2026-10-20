@@ -3,6 +3,19 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
+
+def configure_year_axis(fig, dataframe):
+    years = sorted(int(year) for year in dataframe["年份"].dropna().unique())
+    if not years:
+        years = [2026]
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=years,
+        ticktext=[str(year) for year in years],
+        range=[years[0] - 0.25, years[-1] + 0.25],
+    )
+
+
 # 設定網頁標題與寬度
 st.set_page_config(
     page_title="龍天宮歷年活動報名人數系統", page_icon="🏮", layout="wide"
@@ -168,6 +181,7 @@ with tab1:
       yaxis_title="祭改人數",
       template="plotly_white",
   )
+  configure_year_axis(fig_jg, df_jg)
   st.plotly_chart(fig_jg, use_container_width=True)
 
 # ==================== 2. 正月光明燈及太歲 ====================
@@ -228,19 +242,29 @@ with tab2:
   fig_light = make_subplots(specs=[[{"secondary_y": True}]])
   fig_light.add_trace(
       go.Scatter(
-          x=df_light["年份"],
+          x=df_light["年份"] - 0.05,
           y=df_light["300元光明燈"],
+          customdata=df_light["年份"],
           name="300元光明燈人數",
+          hovertemplate=(
+              "年份: %{customdata}<br>300元光明燈人數: %{y}<extra></extra>"
+          ),
           line=dict(color="orange", width=3),
+          mode="lines+markers",
       ),
       secondary_y=False,
   )
   fig_light.add_trace(
       go.Scatter(
-          x=df_light["年份"],
+          x=df_light["年份"] + 0.05,
           y=df_light["500元光明燈"],
+          customdata=df_light["年份"],
           name="500元光明燈人數",
+          hovertemplate=(
+              "年份: %{customdata}<br>500元光明燈人數: %{y}<extra></extra>"
+          ),
           line=dict(color="orangered", width=3, dash="dash"),
+          mode="lines+markers",
       ),
       secondary_y=True,
   )
@@ -249,25 +273,36 @@ with tab2:
   )
   fig_light.update_yaxes(title_text="<b>300元光明燈人數</b>", secondary_y=False)
   fig_light.update_yaxes(title_text="<b>500元光明燈人數</b>", secondary_y=True)
+  configure_year_axis(fig_light, df_light)
   st.plotly_chart(fig_light, use_container_width=True)
 
   # 圖表 2：太歲雙Y軸曲線圖
   fig_taisu = make_subplots(specs=[[{"secondary_y": True}]])
   fig_taisu.add_trace(
       go.Scatter(
-          x=df_light["年份"],
+          x=df_light["年份"] - 0.05,
           y=df_light["300元太歲"],
+          customdata=df_light["年份"],
           name="300元太歲人數",
+          hovertemplate=(
+              "年份: %{customdata}<br>300元太歲人數: %{y}<extra></extra>"
+          ),
           line=dict(color="dodgerblue", width=3),
+          mode="lines+markers",
       ),
       secondary_y=False,
   )
   fig_taisu.add_trace(
       go.Scatter(
-          x=df_light["年份"],
+          x=df_light["年份"] + 0.05,
           y=df_light["500元太歲"],
+          customdata=df_light["年份"],
           name="500元太歲人數",
+          hovertemplate=(
+              "年份: %{customdata}<br>500元太歲人數: %{y}<extra></extra>"
+          ),
           line=dict(color="darkblue", width=3, dash="dash"),
+          mode="lines+markers",
       ),
       secondary_y=True,
   )
@@ -276,6 +311,7 @@ with tab2:
   )
   fig_taisu.update_yaxes(title_text="<b>300元太歲人數</b>", secondary_y=False)
   fig_taisu.update_yaxes(title_text="<b>500元太歲人數</b>", secondary_y=True)
+  configure_year_axis(fig_taisu, df_light)
   st.plotly_chart(fig_taisu, use_container_width=True)
 
 # ==================== 3. 正月年斗 ====================
@@ -368,6 +404,7 @@ with tab3:
       yaxis_title="年斗人數",
       template="plotly_white",
   )
+  configure_year_axis(fig_dou, df_dou)
   st.plotly_chart(fig_dou, use_container_width=True)
 
 # ==================== 4. 三月全家補運及補財庫 ====================
@@ -418,19 +455,29 @@ with tab4:
   fig_march = make_subplots(specs=[[{"secondary_y": True}]])
   fig_march.add_trace(
       go.Scatter(
-          x=df_march["年份"],
+          x=df_march["年份"] - 0.05,
           y=df_march["全家補運人數"],
+          customdata=df_march["年份"],
           name="全家補運人數",
+          hovertemplate=(
+              "年份: %{customdata}<br>全家補運人數: %{y}<extra></extra>"
+          ),
           line=dict(color="green", width=3),
+          mode="lines+markers",
       ),
       secondary_y=False,
   )
   fig_march.add_trace(
       go.Scatter(
-          x=df_march["年份"],
+          x=df_march["年份"] + 0.05,
           y=df_march["補財庫人數"],
+          customdata=df_march["年份"],
           name="補財庫人數",
+          hovertemplate=(
+              "年份: %{customdata}<br>補財庫人數: %{y}<extra></extra>"
+          ),
           line=dict(color="goldenrod", width=3, dash="dash"),
+          mode="lines+markers",
       ),
       secondary_y=True,
   )
@@ -441,6 +488,7 @@ with tab4:
   )
   fig_march.update_yaxes(title_text="<b>全家補運人數</b>", secondary_y=False)
   fig_march.update_yaxes(title_text="<b>補財庫人數</b>", secondary_y=True)
+  configure_year_axis(fig_march, df_march)
   st.plotly_chart(fig_march, use_container_width=True)
 
 # ==================== 5. 個人補運及補財庫 ====================
@@ -524,18 +572,24 @@ with tab5:
   ]
   fig_personal = make_subplots(specs=[[{"secondary_y": True}]])
   personal_series = [
-      ("六月補運人數", "六月補運人數", "purple", "solid", False),
-      ("九月補運人數", "九月補運人數", "mediumpurple", "dash", False),
-      ("六月補財庫人數", "六月補財庫人數", "teal", "solid", True),
-      ("九月補財庫人數", "九月補財庫人數", "darkcyan", "dash", True),
+      ("六月補運人數", "六月補運人數", "purple", "solid", False, -0.12),
+      ("九月補運人數", "九月補運人數", "mediumpurple", "dash", False, -0.04),
+      ("六月補財庫人數", "六月補財庫人數", "teal", "solid", True, 0.04),
+      ("九月補財庫人數", "九月補財庫人數", "darkcyan", "dash", True, 0.12),
   ]
-  for count_column, name, color, dash, secondary_y in personal_series:
+  for (
+      count_column, name, color, dash, secondary_y, year_offset
+  ) in personal_series:
       fig_personal.add_trace(
           go.Scatter(
-              x=df_personal["年份"],
+              x=df_personal["年份"] + year_offset,
               y=df_personal[count_column],
+              customdata=df_personal["年份"],
               name=name,
               mode="lines+markers",
+              hovertemplate=(
+                  f"年份: %{{customdata}}<br>{name}: %{{y}}<extra></extra>"
+              ),
               line=dict(color=color, width=3, dash=dash),
           ),
           secondary_y=secondary_y,
@@ -547,4 +601,5 @@ with tab5:
   )
   fig_personal.update_yaxes(title_text="<b>補運人數</b>", secondary_y=False)
   fig_personal.update_yaxes(title_text="<b>補財庫人數</b>", secondary_y=True)
+  configure_year_axis(fig_personal, df_personal)
   st.plotly_chart(fig_personal, use_container_width=True)
