@@ -296,7 +296,7 @@ with tab2:
   fig_light = make_subplots(specs=[[{"secondary_y": True}]])
   fig_light.add_trace(
       go.Scatter(
-          x=df_light["年份"] - 0.05,
+          x=df_light["年份"],
           y=df_light["300元光明燈"],
           customdata=df_light["年份"],
           name="300元光明燈人數",
@@ -310,7 +310,7 @@ with tab2:
   )
   fig_light.add_trace(
       go.Scatter(
-          x=df_light["年份"] + 0.05,
+          x=df_light["年份"],
           y=df_light["500元光明燈"],
           customdata=df_light["年份"],
           name="500元光明燈人數",
@@ -342,7 +342,7 @@ with tab2:
   fig_taisu = make_subplots(specs=[[{"secondary_y": True}]])
   fig_taisu.add_trace(
       go.Scatter(
-          x=df_light["年份"] - 0.05,
+          x=df_light["年份"],
           y=df_light["300元太歲"],
           customdata=df_light["年份"],
           name="300元太歲人數",
@@ -356,7 +356,7 @@ with tab2:
   )
   fig_taisu.add_trace(
       go.Scatter(
-          x=df_light["年份"] + 0.05,
+          x=df_light["年份"],
           y=df_light["500元太歲"],
           customdata=df_light["年份"],
           name="500元太歲人數",
@@ -536,7 +536,7 @@ with tab4:
   fig_march = make_subplots(specs=[[{"secondary_y": True}]])
   fig_march.add_trace(
       go.Scatter(
-          x=df_march["年份"] - 0.05,
+          x=df_march["年份"],
           y=df_march["全家補運人數"],
           customdata=df_march["年份"],
           name="全家補運人數",
@@ -550,7 +550,7 @@ with tab4:
   )
   fig_march.add_trace(
       go.Scatter(
-          x=df_march["年份"] + 0.05,
+          x=df_march["年份"],
           y=df_march["補財庫人數"],
           customdata=df_march["年份"],
           name="補財庫人數",
@@ -662,17 +662,17 @@ with tab5:
   ]
   fig_personal = make_subplots(specs=[[{"secondary_y": True}]])
   personal_series = [
-      ("六月補運人數", "六月補運人數", "purple", "solid", False, -0.12),
-      ("九月補運人數", "九月補運人數", "mediumpurple", "dash", False, -0.04),
-      ("六月補財庫人數", "六月補財庫人數", "teal", "solid", True, 0.04),
-      ("九月補財庫人數", "九月補財庫人數", "darkcyan", "dash", True, 0.12),
+      ("六月補運人數", "六月補運人數", "purple", "solid", False),
+      ("九月補運人數", "九月補運人數", "mediumpurple", "dash", False),
+      ("六月補財庫人數", "六月補財庫人數", "teal", "solid", True),
+      ("九月補財庫人數", "九月補財庫人數", "darkcyan", "dash", True),
   ]
   for (
-      count_column, name, color, dash, secondary_y, year_offset
+      count_column, name, color, dash, secondary_y
   ) in personal_series:
       fig_personal.add_trace(
           go.Scatter(
-              x=df_personal["年份"] + year_offset,
+              x=df_personal["年份"],
               y=df_personal[count_column],
               customdata=df_personal["年份"],
               name=name,
