@@ -68,12 +68,10 @@ def configure_y_axes(fig, chart_key, axes):
 
 def build_annual_summary(dataframes):
     summary = None
-    for dataframe, source_columns, output_column in dataframes:
-        yearly_counts = dataframe[["年份"]].copy()
-        yearly_counts[output_column] = dataframe[source_columns].sum(axis=1)
-        yearly_counts = yearly_counts.groupby("年份", as_index=False)[
-            output_column
-        ].sum()
+    for dataframe, count_columns in dataframes:
+        yearly_counts = dataframe[["年份", *count_columns]].groupby(
+            "年份", as_index=False
+        )[count_columns].sum()
         summary = (
             yearly_counts
             if summary is None
@@ -799,16 +797,14 @@ with tab7:
 
   annual_summary = build_annual_summary(
       [
-          (st.session_state.data_jg, ["祭改人數"], "祭改人數"),
+          (st.session_state.data_jg, ["祭改人數"]),
           (
               st.session_state.data_light,
               ["300元光明燈", "500元光明燈"],
-              "光明燈人數",
           ),
           (
               st.session_state.data_light,
               ["300元太歲", "500元太歲"],
-              "太歲人數",
           ),
           (
               st.session_state.data_dou,
@@ -818,19 +814,16 @@ with tab7:
                   "5000元年斗",
                   "6000元年斗",
               ],
-              "正月年斗人數",
           ),
           (
               st.session_state.data_march,
               ["全家補運人數", "補財庫人數"],
-              "三月全家補運及補財庫人數",
           ),
           (
               st.session_state.data_personal,
               personal_count_columns,
-              "個人補運及補財庫人數",
           ),
-          (st.session_state.data_pudu, ["普度人數"], "普度人數"),
+          (st.session_state.data_pudu, ["普度人數"]),
       ]
   )
   activity_columns = list(annual_summary.columns[1:])
