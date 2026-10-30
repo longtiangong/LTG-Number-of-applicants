@@ -1,4 +1,5 @@
 import math
+import os
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -65,12 +66,37 @@ def configure_y_axes(fig, chart_key, axes):
             fig.update_yaxes(**axis_options)
 
 
+def build_annual_summary(dataframes):
+    summary = None
+    for dataframe, source_columns, output_column in dataframes:
+        yearly_counts = dataframe[["年份"]].copy()
+        yearly_counts[output_column] = dataframe[source_columns].sum(axis=1)
+        yearly_counts = yearly_counts.groupby("年份", as_index=False)[
+            output_column
+        ].sum()
+        summary = (
+            yearly_counts
+            if summary is None
+            else summary.merge(yearly_counts, on="年份", how="outer")
+        )
+
+    if summary is None:
+        return pd.DataFrame(columns=["年份"])
+    return (
+        summary.fillna(0)
+        .sort_values("年份")
+        .astype({"年份": int, **{column: int for column in summary.columns[1:]}})
+        .reset_index(drop=True)
+    )
+
+
 # 設定網頁標題與寬度
 st.set_page_config(
     page_title="龍天宮歷年活動報名人數系統", page_icon="🏮", layout="wide"
 )
 
-st.title("🏮 龍天宮歷年活動報名人數統計與分佈系統 {app_version}")
+app_version = os.getenv("APP_VERSION", "").strip() or "開發版"
+st.title(f"🏮 龍天宮歷年活動報名人數統計與分佈系統（{app_version}）")
 
 # 初始化 Session State 以保存各組資料（避免重新整理後資料消失）
 if "data_jg" not in st.session_state:
@@ -163,15 +189,20 @@ elif not set(personal_count_columns).issubset(
         )
     st.session_state.data_personal = migrated_personal
 
-# 建立五大功能分頁
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    [
-        "1. 正月祭改",
-        "2. 正月光明燈及太歲",
-        "3. 正月年斗",
-        "4. 三月全家補運及補財庫",
-        "5. 個人補運及補財庫",
-    ]
+if "data_pudu" not in st.session_state:
+        st.session_state.data_pudu = pd.DataFrame(columns=["年份", "普度人數"])
+
+# 建立活動管理及年度看板分頁
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        [
+            "1. 正月祭改",
+            "2. 正月光明燈及太歲",
+            "3. 正月年斗",
+            "4. 三月全家補運及補財庫",
+            "5. 個人補運及補財庫",
+            "6. 普度",
+            "7. 年度看板",
+        ]
 )
 
 # ==================== 1. 正月祭改 ====================
@@ -703,3 +734,173 @@ with tab5:
       ],
   )
   st.plotly_chart(fig_personal, use_container_width=True)
+
+# ==================== 6. 普度 ====================
+with tab6:
+  st.header("🙏 普度報名管理")
+
+  with st.form("form_pudu"):
+    col1, col2 = st.columns(2)
+    with col1:
+      year_pudu = st.number_input(
+          "年份", min_value=2000, max_value=2100, value=2026, step=1, key="y_pudu"
+      )
+    with col2:
+      count_pudu = st.number_input(
+          "普度人數", min_value=0, value=150, step=1, key="c_pudu"
+      )
+
+    submitted_pudu = st.form_submit_button("新增 / 更新普度資料")
+    if submitted_pudu:
+      df_pudu = st.session_state.data_pudu
+      if year_pudu in df_pudu["年份"].values:
+        df_pudu.loc[df_pudu["年份"] == year_pudu, "普度人數"] = count_pudu
+      else:
+        new_row = pd.DataFrame({"年份": [year_pudu], "普度人數": [count_pudu]})
+        st.session_state.data_pudu = pd.concat(
+            [df_pudu, new_row], ignore_index=True
+        )
+      st.session_state.data_pudu = st.session_state.data_pudu.sort_values(
+          "年份"
+      ).reset_index(drop=True)
+      st.success(f"成功儲存 {year_pudu} 年普度資料！")
+
+  st.subheader("📊 普度人數總覽表")
+  st.dataframe(st.session_state.data_pudu, use_container_width=True)
+
+  df_pudu = st.session_state.data_pudu
+  fig_pudu = go.Figure()
+  fig_pudu.add_trace(
+      go.Scatter(
+          x=df_pudu["年份"],
+          y=df_pudu["普度人數"],
+          mode="lines+markers",
+          name="普度人數",
+          line=dict(color="darkorange", width=3),
+      )
+  )
+  fig_pudu.update_layout(
+      title="普度人數分佈圖",
+      xaxis_title="年份普度",
+      yaxis_title="普度人數",
+      template="plotly_white",
+  )
+  configure_year_axis(fig_pudu, df_pudu)
+  configure_y_axes(
+      fig_pudu,
+      "pudu",
+      [("count", "普度人數", df_pudu, ["普度人數"], None)],
+  )
+  st.plotly_chart(fig_pudu, use_container_width=True)
+
+# ==================== 7. 年度看板 ====================
+with tab7:
+  st.header("📈 歷年活動報名人數看板")
+
+  annual_summary = build_annual_summary(
+      [
+          (st.session_state.data_jg, ["祭改人數"], "祭改人數"),
+          (
+              st.session_state.data_light,
+              ["300元光明燈", "500元光明燈"],
+              "光明燈人數",
+          ),
+          (
+              st.session_state.data_light,
+              ["300元太歲", "500元太歲"],
+              "太歲人數",
+          ),
+          (
+              st.session_state.data_dou,
+              [
+                  "1000元年斗",
+                  "3000元年斗",
+                  "5000元年斗",
+                  "6000元年斗",
+              ],
+              "正月年斗人數",
+          ),
+          (
+              st.session_state.data_march,
+              ["全家補運人數", "補財庫人數"],
+              "三月全家補運及補財庫人數",
+          ),
+          (
+              st.session_state.data_personal,
+              personal_count_columns,
+              "個人補運及補財庫人數",
+          ),
+          (st.session_state.data_pudu, ["普度人數"], "普度人數"),
+      ]
+  )
+  activity_columns = list(annual_summary.columns[1:])
+  st.subheader("📋 各年度活動報名人數總表")
+  st.dataframe(annual_summary, use_container_width=True, hide_index=True)
+
+  years = annual_summary["年份"].tolist()
+  if not years:
+      st.info("目前沒有可供比較的年度資料。")
+  else:
+      activity_column = st.selectbox(
+          "選擇比較活動",
+          activity_columns,
+          format_func=lambda column: column.removesuffix("人數"),
+          key="dashboard_activity",
+      )
+      left_year, right_year = st.columns(2)
+      with left_year:
+          selected_left_year = st.selectbox(
+              "左側圖表年份",
+              years,
+              index=max(0, len(years) - 2),
+              key="dashboard_left_year",
+          )
+      with right_year:
+          selected_right_year = st.selectbox(
+              "右側圖表年份",
+              years,
+              index=len(years) - 1,
+              key="dashboard_right_year",
+          )
+
+      chart_columns = st.columns(2)
+      for chart_column, selected_year, side in (
+          (chart_columns[0], selected_left_year, "left"),
+          (chart_columns[1], selected_right_year, "right"),
+      ):
+          with chart_column:
+              marker_colors = [
+                  "firebrick" if year == selected_year else "steelblue"
+                  for year in years
+              ]
+              marker_sizes = [
+                  12 if year == selected_year else 8 for year in years
+              ]
+              fig_trend = go.Figure(
+                  go.Scatter(
+                      x=years,
+                      y=annual_summary[activity_column],
+                      mode="lines+markers",
+                      name=activity_column,
+                      marker=dict(color=marker_colors, size=marker_sizes),
+                      line=dict(color="steelblue", width=2),
+                      hovertemplate=(
+                          "年份: %{x}<br>報名人數: %{y}<extra></extra>"
+                      ),
+                  )
+              )
+              fig_trend.update_layout(
+                  title=f"{selected_year}年{activity_column.removesuffix('人數')}報名趨勢圖",
+                  xaxis_title="年份",
+                  yaxis_title="報名人數",
+                  template="plotly_white",
+                  showlegend=False,
+              )
+              fig_trend.update_xaxes(
+                  tickmode="array", tickvals=years, ticktext=[str(y) for y in years]
+              )
+              st.plotly_chart(
+                  fig_trend,
+                  use_container_width=True,
+                  key=f"dashboard_{side}_trend",
+              )
