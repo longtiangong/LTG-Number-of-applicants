@@ -826,18 +826,37 @@ with tab7:
           (st.session_state.data_pudu, ["普度人數"]),
       ]
   )
-  activity_columns = list(annual_summary.columns[1:])
+  activity_columns = {
+      "祭改": ["祭改人數"],
+      "光明燈": ["300元光明燈", "500元光明燈"],
+      "太歲": ["300元太歲", "500元太歲"],
+      "正月年斗": [
+          "1000元年斗",
+          "3000元年斗",
+          "5000元年斗",
+          "6000元年斗",
+      ],
+      "三月全家補運及補財庫": ["全家補運人數", "補財庫人數"],
+      "個人補運及補財庫": personal_count_columns,
+      "普度": ["普度人數"],
+  }
+  annual_category_totals = annual_summary[["年份"]].copy()
+  for activity, columns in activity_columns.items():
+      total_column = f"{activity}總計"
+      annual_category_totals[total_column] = annual_summary[columns].sum(axis=1)
+
   st.subheader("📋 各年度活動報名人數總表")
   st.dataframe(annual_summary, use_container_width=True, hide_index=True)
+  st.subheader("📊 各類活動報名人數總計表")
+  st.dataframe(annual_category_totals, use_container_width=True, hide_index=True)
 
   years = annual_summary["年份"].tolist()
   if not years:
       st.info("目前沒有可供比較的年度資料。")
   else:
-      activity_column = st.selectbox(
+      selected_activity = st.selectbox(
           "選擇比較活動",
-          activity_columns,
-          format_func=lambda column: column.removesuffix("人數"),
+          list(activity_columns),
           key="dashboard_activity",
       )
       left_year, right_year = st.columns(2)
@@ -862,38 +881,47 @@ with tab7:
           (chart_columns[1], selected_right_year, "right"),
       ):
           with chart_column:
-              marker_colors = [
-                  "firebrick" if year == selected_year else "steelblue"
-                  for year in years
+              activity_count_columns = activity_columns[selected_activity]
+              year_data = annual_summary.loc[
+                  annual_summary["年份"] == selected_year
+              ].iloc[0]
+              bar_labels = [
+                  column.removesuffix("人數")
+                  for column in activity_count_columns
               ]
-              marker_sizes = [
-                  12 if year == selected_year else 8 for year in years
+              bar_values = [
+                  int(year_data[column]) for column in activity_count_columns
               ]
-              fig_trend = go.Figure(
-                  go.Scatter(
-                      x=years,
-                      y=annual_summary[activity_column],
-                      mode="lines+markers",
-                      name=activity_column,
-                      marker=dict(color=marker_colors, size=marker_sizes),
-                      line=dict(color="steelblue", width=2),
+              bar_labels.append("總計")
+              bar_values.append(sum(bar_values))
+
+              fig_breakdown = go.Figure(
+                  go.Bar(
+                      x=bar_labels,
+                      y=bar_values,
+                      text=bar_values,
+                      textposition="outside",
+                      marker_color=[
+                          "steelblue"
+                          if label != "總計"
+                          else "darkorange"
+                          for label in bar_labels
+                      ],
                       hovertemplate=(
-                          "年份: %{x}<br>報名人數: %{y}<extra></extra>"
+                          "%{x}: %{y}人<extra></extra>"
                       ),
                   )
               )
-              fig_trend.update_layout(
-                  title=f"{selected_year}年{activity_column.removesuffix('人數')}報名趨勢圖",
-                  xaxis_title="年份",
+              fig_breakdown.update_layout(
+                  title=f"{selected_year}年{selected_activity}報名人數",
+                  xaxis_title="方案／項目",
                   yaxis_title="報名人數",
                   template="plotly_white",
                   showlegend=False,
               )
-              fig_trend.update_xaxes(
-                  tickmode="array", tickvals=years, ticktext=[str(y) for y in years]
-              )
+              fig_breakdown.update_yaxes(rangemode="tozero")
               st.plotly_chart(
-                  fig_trend,
+                  fig_breakdown,
                   use_container_width=True,
-                  key=f"dashboard_{side}_trend",
+                  key=f"dashboard_{side}_breakdown",
               )
