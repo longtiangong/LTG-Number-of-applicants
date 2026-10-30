@@ -94,7 +94,7 @@ st.set_page_config(
 )
 
 app_version = os.getenv("APP_VERSION", "").strip()
-st.title(f"🏮 龍天宮歷年活動報名人數統計與分佈系統（{app_version}）")
+st.title(f"🏮 龍天宮歷年活動報名人數統計與分佈系統（{app_version}")
 
 # 初始化 Session State 以保存各組資料（避免重新整理後資料消失）
 if "data_jg" not in st.session_state:
