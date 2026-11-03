@@ -1,9 +1,83 @@
+import json
 import math
+import sqlite3
+from contextlib import closing, contextmanager
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+
+
+DATA_STORE_PATH = Path(__file__).with_name("app_data.sqlite3")
+
+
+@contextmanager
+def open_data_store():
+    with closing(sqlite3.connect(DATA_STORE_PATH, timeout=10)) as connection:
+        with connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS activity_data (
+                    activity TEXT NOT NULL,
+                    year INTEGER NOT NULL,
+                    values_json TEXT NOT NULL,
+                    PRIMARY KEY (activity, year)
+                )
+                """
+            )
+            yield connection
+
+
+def load_activity_data(activity, default_dataframe):
+    with open_data_store() as connection:
+        records = connection.execute(
+            "SELECT year, values_json FROM activity_data WHERE activity = ?",
+            (activity,),
+        ).fetchall()
+
+    if not records:
+        return default_dataframe
+
+    count_columns = [
+        column for column in default_dataframe.columns if column != "年份"
+    ]
+    persisted_rows = []
+    for year, values_json in records:
+        values = json.loads(values_json)
+        if set(values) != set(count_columns):
+            raise ValueError(f"{activity} 的已儲存資料欄位與程式不一致。")
+        persisted_rows.append({"年份": year, **values})
+
+    persisted_dataframe = pd.DataFrame(
+        persisted_rows, columns=default_dataframe.columns
+    )
+    return (
+        pd.concat([default_dataframe, persisted_dataframe], ignore_index=True)
+        .drop_duplicates(subset=["年份"], keep="last")
+        .sort_values("年份")
+        .reset_index(drop=True)
+    )
+
+
+def save_activity_year(activity, dataframe, year):
+    row = dataframe.loc[dataframe["年份"] == year].iloc[-1]
+    values = {
+        column: int(row[column])
+        for column in dataframe.columns
+        if column != "年份"
+    }
+    with open_data_store() as connection:
+        connection.execute(
+            """
+            INSERT INTO activity_data (activity, year, values_json)
+            VALUES (?, ?, ?)
+            ON CONFLICT(activity, year) DO UPDATE SET
+                values_json = excluded.values_json
+            """,
+            (activity, int(year), json.dumps(values, ensure_ascii=False)),
+        )
 
 
 def configure_year_axis(fig, dataframe):
@@ -189,6 +263,20 @@ elif not set(personal_count_columns).issubset(
 if "data_pudu" not in st.session_state:
         st.session_state.data_pudu = pd.DataFrame(columns=["年份", "普度人數"])
 
+if "activity_data_loaded" not in st.session_state:
+    for activity, state_key in (
+        ("jg", "data_jg"),
+        ("light", "data_light"),
+        ("dou", "data_dou"),
+        ("march", "data_march"),
+        ("personal", "data_personal"),
+        ("pudu", "data_pudu"),
+    ):
+        st.session_state[state_key] = load_activity_data(
+            activity, st.session_state[state_key]
+        )
+    st.session_state.activity_data_loaded = True
+
 # 建立活動管理及年度看板分頁
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
         [
@@ -232,6 +320,7 @@ with tab1:
       st.session_state.data_jg = st.session_state.data_jg.sort_values(
           "年份"
       ).reset_index(drop=True)
+      save_activity_year("jg", st.session_state.data_jg, year_jg)
       st.success(f"成功儲存 {year_jg} 年正月祭改資料！")
 
   st.subheader("📊 正月祭改報名人數總覽表")
@@ -308,6 +397,7 @@ with tab2:
       st.session_state.data_light = st.session_state.data_light.sort_values(
           "年份"
       ).reset_index(drop=True)
+      save_activity_year("light", st.session_state.data_light, year_light)
       st.success(f"成功儲存 {year_light} 年光明燈與太歲資料！")
 
   st.subheader("📊 光明燈及太歲報名人數總覽表")
@@ -449,6 +539,7 @@ with tab3:
       st.session_state.data_dou = st.session_state.data_dou.sort_values(
           "年份"
       ).reset_index(drop=True)
+      save_activity_year("dou", st.session_state.data_dou, year_dou)
       st.success(f"成功儲存 {year_dou} 年年斗資料！")
 
   st.subheader("📊 年斗報名人數總覽表")
@@ -546,6 +637,7 @@ with tab4:
       st.session_state.data_march = st.session_state.data_march.sort_values(
           "年份"
       ).reset_index(drop=True)
+      save_activity_year("march", st.session_state.data_march, year_m)
       st.success(f"成功儲存 {year_m} 年三月全家補運及補財庫資料！")
 
   st.subheader("📊 三月全家補運及補財庫報名人數總覽表")
@@ -671,6 +763,7 @@ with tab5:
               drop=True
           )
       )
+      save_activity_year("personal", st.session_state.data_personal, year_p)
       st.success(f"成功儲存 {year_p} 年個人補運及補財庫資料！")
 
   st.subheader("📊 個人補運及補財庫人數總覽表")
@@ -760,6 +853,7 @@ with tab6:
       st.session_state.data_pudu = st.session_state.data_pudu.sort_values(
           "年份"
       ).reset_index(drop=True)
+      save_activity_year("pudu", st.session_state.data_pudu, year_pudu)
       st.success(f"成功儲存 {year_pudu} 年普度資料！")
 
   st.subheader("📊 普度人數總覽表")
