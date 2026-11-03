@@ -6,11 +6,37 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 from plotly.subplots import make_subplots
+from streamlit.errors import StreamlitSecretNotFoundError
 import streamlit as st
 
 
 DATA_STORE_PATH = Path(__file__).with_name("app_data.sqlite3")
+ANNUAL_WORKSHEET_TITLE = "各年度活動報名人數總表"
+SHEET_ACTIVITY_COLUMNS = {
+    "data_jg": ["祭改人數"],
+    "data_light": [
+        "300元光明燈",
+        "500元光明燈",
+        "300元太歲",
+        "500元太歲",
+    ],
+    "data_dou": [
+        "1000元年斗",
+        "3000元年斗",
+        "5000元年斗",
+        "6000元年斗",
+    ],
+    "data_march": ["全家補運人數", "補財庫人數"],
+    "data_personal": [
+        "六月補運人數",
+        "九月補運人數",
+        "六月補財庫人數",
+        "九月補財庫人數",
+    ],
+    "data_pudu": ["普度人數"],
+}
 
 
 @contextmanager
@@ -78,6 +104,80 @@ def save_activity_year(activity, dataframe, year):
             """,
             (activity, int(year), json.dumps(values, ensure_ascii=False)),
         )
+
+
+def call_google_apps_script(endpoint, token, action, **payload):
+    response = requests.post(
+        endpoint,
+        json={"token": token, "action": action, **payload},
+        timeout=30,
+    )
+    response.raise_for_status()
+    result = response.json()
+    if not result.get("ok"):
+        raise RuntimeError(
+            result.get("error", "Google Apps Script 同步失敗。")
+        )
+    return result
+
+
+def load_annual_summary_from_sheet(endpoint, token):
+    result = call_google_apps_script(endpoint, token, "load")
+    sheet_data = result.get("annual_summary")
+    if sheet_data is None:
+        return None
+
+    headers = sheet_data["headers"]
+    required_columns = [
+        "年份",
+        *dict.fromkeys(
+            column
+            for columns in SHEET_ACTIVITY_COLUMNS.values()
+            for column in columns
+        ),
+    ]
+    missing_columns = set(required_columns).difference(headers)
+    if missing_columns:
+        raise ValueError(
+            f"Google 試算表「{ANNUAL_WORKSHEET_TITLE}」缺少欄位："
+            f"{'、'.join(sorted(missing_columns))}"
+        )
+
+    dataframe = pd.DataFrame(sheet_data["rows"], columns=headers)
+    dataframe = dataframe.loc[dataframe["年份"].astype(str).str.strip() != ""]
+    for column in required_columns:
+        dataframe[column] = pd.to_numeric(dataframe[column], errors="raise")
+    return (
+        dataframe[list(required_columns)]
+        .astype(int)
+        .sort_values("年份")
+        .reset_index(drop=True)
+    )
+
+
+def load_activity_data_from_summary(annual_summary):
+    return {
+        state_key: annual_summary[["年份", *columns]].copy()
+        for state_key, columns in SHEET_ACTIVITY_COLUMNS.items()
+    }
+
+
+def sync_dashboard_to_google_sheets(
+    endpoint, token, annual_summary, annual_category_totals
+):
+    call_google_apps_script(
+        endpoint,
+        token,
+        "sync",
+        annual_summary={
+            "headers": annual_summary.columns.tolist(),
+            "rows": annual_summary.values.tolist(),
+        },
+        category_totals={
+            "headers": annual_category_totals.columns.tolist(),
+            "rows": annual_category_totals.values.tolist(),
+        },
+    )
 
 
 def configure_year_axis(fig, dataframe):
@@ -168,6 +268,34 @@ st.set_page_config(
 
 app_version = "1.0.0"
 st.title(f"🏮 龍天宮歷年活動報名人數統計與分佈系統（{app_version}")
+
+try:
+    google_apps_script_url = st.secrets.get("google_apps_script_url", "")
+    google_apps_script_token = st.secrets.get("google_apps_script_token", "")
+except StreamlitSecretNotFoundError:
+    google_apps_script_url = ""
+    google_apps_script_token = ""
+
+google_sheets_configured = bool(
+    google_apps_script_url and google_apps_script_token
+)
+if bool(google_apps_script_url) != bool(google_apps_script_token):
+    st.error(
+        "Google Apps Script 設定不完整，請同時設定 "
+        "google_apps_script_url 與 google_apps_script_token。"
+    )
+    st.stop()
+if google_sheets_configured:
+    if not google_apps_script_url.startswith(
+        "https://script.google.com/macros/s/"
+    ):
+        st.error("google_apps_script_url 必須是 GAS Web App 部署網址。")
+        st.stop()
+else:
+    st.warning(
+        "尚未設定 Google Apps Script；目前資料只會儲存在本機。"
+        "完成 Streamlit Secrets 設定後才會同步到 Google Sheets。"
+    )
 
 # 初始化 Session State 以保存各組資料（避免重新整理後資料消失）
 if "data_jg" not in st.session_state:
@@ -275,7 +403,18 @@ if "activity_data_loaded" not in st.session_state:
         st.session_state[state_key] = load_activity_data(
             activity, st.session_state[state_key]
         )
+    if google_sheets_configured:
+        sheet_summary = load_annual_summary_from_sheet(
+            google_apps_script_url, google_apps_script_token
+        )
+        if sheet_summary is not None:
+            st.session_state.update(
+                load_activity_data_from_summary(sheet_summary)
+            )
+        st.session_state.sync_google_sheets_pending = True
     st.session_state.activity_data_loaded = True
+
+pending_save_message = None
 
 # 建立活動管理及年度看板分頁
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
@@ -321,7 +460,7 @@ with tab1:
           "年份"
       ).reset_index(drop=True)
       save_activity_year("jg", st.session_state.data_jg, year_jg)
-      st.success(f"成功儲存 {year_jg} 年正月祭改資料！")
+      pending_save_message = f"{year_jg} 年正月祭改資料"
 
   st.subheader("📊 正月祭改報名人數總覽表")
   st.dataframe(st.session_state.data_jg, use_container_width=True)
@@ -398,7 +537,7 @@ with tab2:
           "年份"
       ).reset_index(drop=True)
       save_activity_year("light", st.session_state.data_light, year_light)
-      st.success(f"成功儲存 {year_light} 年光明燈與太歲資料！")
+      pending_save_message = f"{year_light} 年光明燈與太歲資料"
 
   st.subheader("📊 光明燈及太歲報名人數總覽表")
   st.dataframe(st.session_state.data_light, use_container_width=True)
@@ -540,7 +679,7 @@ with tab3:
           "年份"
       ).reset_index(drop=True)
       save_activity_year("dou", st.session_state.data_dou, year_dou)
-      st.success(f"成功儲存 {year_dou} 年年斗資料！")
+      pending_save_message = f"{year_dou} 年年斗資料"
 
   st.subheader("📊 年斗報名人數總覽表")
   st.dataframe(st.session_state.data_dou, use_container_width=True)
@@ -638,7 +777,7 @@ with tab4:
           "年份"
       ).reset_index(drop=True)
       save_activity_year("march", st.session_state.data_march, year_m)
-      st.success(f"成功儲存 {year_m} 年三月全家補運及補財庫資料！")
+      pending_save_message = f"{year_m} 年三月全家補運及補財庫資料"
 
   st.subheader("📊 三月全家補運及補財庫報名人數總覽表")
   st.dataframe(st.session_state.data_march, use_container_width=True)
@@ -764,7 +903,7 @@ with tab5:
           )
       )
       save_activity_year("personal", st.session_state.data_personal, year_p)
-      st.success(f"成功儲存 {year_p} 年個人補運及補財庫資料！")
+      pending_save_message = f"{year_p} 年個人補運及補財庫資料"
 
   st.subheader("📊 個人補運及補財庫人數總覽表")
   st.dataframe(st.session_state.data_personal, use_container_width=True)
@@ -854,7 +993,7 @@ with tab6:
           "年份"
       ).reset_index(drop=True)
       save_activity_year("pudu", st.session_state.data_pudu, year_pudu)
-      st.success(f"成功儲存 {year_pudu} 年普度資料！")
+      pending_save_message = f"{year_pudu} 年普度資料"
 
   st.subheader("📊 普度人數總覽表")
   st.dataframe(st.session_state.data_pudu, use_container_width=True)
@@ -937,6 +1076,27 @@ with tab7:
   for activity, columns in activity_columns.items():
       total_column = f"{activity}總計"
       annual_category_totals[total_column] = annual_summary[columns].sum(axis=1)
+
+  if pending_save_message and google_sheets_configured:
+      st.session_state.sync_google_sheets_pending = True
+  if st.session_state.get("sync_google_sheets_pending", False):
+      sync_dashboard_to_google_sheets(
+          google_apps_script_url,
+          google_apps_script_token,
+          annual_summary,
+          annual_category_totals,
+      )
+      st.session_state.sync_google_sheets_pending = False
+      if pending_save_message:
+          st.success(
+              f"成功儲存並同步 {pending_save_message} 至 Google Sheets。"
+          )
+      else:
+          st.info("年度報表已同步至 Google Sheets。")
+  elif pending_save_message:
+      st.warning(
+          f"已儲存 {pending_save_message} 至本機，但尚未同步到 Google Sheets。"
+      )
 
   st.subheader("📋 各年度活動報名人數總表")
   st.dataframe(annual_summary, use_container_width=True, hide_index=True)
