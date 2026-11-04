@@ -106,6 +106,15 @@ def save_activity_year(activity, dataframe, year):
         )
 
 
+# *修改不保留預設值：新增函式 get_activity_year_counts
+def get_activity_year_counts(dataframe, year, count_columns):
+    matching_rows = dataframe.loc[dataframe["年份"] == year]
+    if matching_rows.empty:
+        return {column: 0 for column in count_columns}
+    row = matching_rows.iloc[-1]
+    return {column: int(row[column]) for column in count_columns}
+
+
 def call_google_apps_script(endpoint, token, action, **payload):
     response = requests.post(
         endpoint,
@@ -432,17 +441,22 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
 # ==================== 1. 正月祭改 ====================
 with tab1:
   st.header("✨ 正月祭改報名管理")
+  # *修改不保留預設值：正月祭改表單（tab1）
+  year_jg = st.number_input(
+      "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_jg"
+  )
+  current_jg = get_activity_year_counts(
+      st.session_state.data_jg, year_jg, ["祭改人數"]
+  )
 
   with st.form("form_jg"):
-    col1, col2 = st.columns(2)
-    with col1:
-      year_jg = st.number_input(
-          "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_jg"
-      )
-    with col2:
-      count_jg = st.number_input(
-          "祭改人數", min_value=0, value=160, step=1, key="c_jg"
-      )
+    count_jg = st.number_input(
+        "祭改人數",
+        min_value=0,
+        value=current_jg["祭改人數"],
+        step=1,
+        key=f"c_jg_{year_jg}",
+    )
 
     submitted_jg = st.form_submit_button("新增 / 更新祭改資料")
     if submitted_jg:
@@ -494,25 +508,50 @@ with tab1:
 # ==================== 2. 正月光明燈及太歲 ====================
 with tab2:
   st.header("🏮 正月光明燈及太歲報名管理")
+  # *修改不保留預設值：光明燈及太歲表單（tab2）
+  year_light = st.number_input(
+      "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_li"
+  )
+  current_light = get_activity_year_counts(
+      st.session_state.data_light,
+      year_light,
+      ["300元光明燈", "500元光明燈", "300元太歲", "500元太歲"],
+  )
 
   with st.form("form_light"):
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
-      year_light = st.number_input(
-          "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_li"
-      )
-    with col2:
       st.markdown("**光明燈設定**")
       light_type = st.selectbox(
           "選擇光明燈方案", ["300元光明燈", "500元光明燈"]
       )
-      count_light_300 = st.number_input("300元光明燈人數", min_value=0, value=260)
-      count_light_500 = st.number_input("500元光明燈人數", min_value=0, value=55)
-    with col3:
+      count_light_300 = st.number_input(
+          "300元光明燈人數",
+          min_value=0,
+          value=current_light["300元光明燈"],
+          key=f"count_light_300_{year_light}",
+      )
+      count_light_500 = st.number_input(
+          "500元光明燈人數",
+          min_value=0,
+          value=current_light["500元光明燈"],
+          key=f"count_light_500_{year_light}",
+      )
+    with col2:
       st.markdown("**太歲設定**")
       taisu_type = st.selectbox("選擇太歲方案", ["300元太歲", "500元太歲"])
-      count_taisu_300 = st.number_input("300元太歲人數", min_value=0, value=160)
-      count_taisu_500 = st.number_input("500元太歲人數", min_value=0, value=18)
+      count_taisu_300 = st.number_input(
+          "300元太歲人數",
+          min_value=0,
+          value=current_light["300元太歲"],
+          key=f"count_taisu_300_{year_light}",
+      )
+      count_taisu_500 = st.number_input(
+          "500元太歲人數",
+          min_value=0,
+          value=current_light["500元太歲"],
+          key=f"count_taisu_500_{year_light}",
+      )
 
     submitted_light = st.form_submit_button("新增 / 更新光明燈與太歲資料")
     if submitted_light:
@@ -639,22 +678,52 @@ with tab2:
 # ==================== 3. 正月年斗 ====================
 with tab3:
   st.header("⭐ 正月年斗報名管理")
+  # *修改不保留預設值：正月年斗表單（tab3）
+  dou_count_columns = [
+      "1000元年斗",
+      "3000元年斗",
+      "5000元年斗",
+      "6000元年斗",
+  ]
+  year_dou = st.number_input(
+      "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_do"
+  )
+  current_dou = get_activity_year_counts(
+      st.session_state.data_dou, year_dou, dou_count_columns
+  )
 
   with st.form("form_dou"):
     col1, col2 = st.columns(2)
     with col1:
-      year_dou = st.number_input(
-          "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_do"
-      )
       dou_type = st.selectbox(
           "年斗方案選項",
           ["1000元年斗", "3000元年斗", "5000元年斗", "6000元年斗"],
       )
     with col2:
-      c_1k = st.number_input("1000元年斗人數", min_value=0, value=55)
-      c_3k = st.number_input("3000元年斗人數", min_value=0, value=12)
-      c_5k = st.number_input("5000元年斗人數", min_value=0, value=22)
-      c_6k = st.number_input("6000元年斗人數", min_value=0, value=16)
+      c_1k = st.number_input(
+          "1000元年斗人數",
+          min_value=0,
+          value=current_dou["1000元年斗"],
+          key=f"c_1k_{year_dou}",
+      )
+      c_3k = st.number_input(
+          "3000元年斗人數",
+          min_value=0,
+          value=current_dou["3000元年斗"],
+          key=f"c_3k_{year_dou}",
+      )
+      c_5k = st.number_input(
+          "5000元年斗人數",
+          min_value=0,
+          value=current_dou["5000元年斗"],
+          key=f"c_5k_{year_dou}",
+      )
+      c_6k = st.number_input(
+          "6000元年斗人數",
+          min_value=0,
+          value=current_dou["6000元年斗"],
+          key=f"c_6k_{year_dou}",
+      )
 
     submitted_dou = st.form_submit_button("新增 / 更新年斗資料")
     if submitted_dou:
@@ -742,20 +811,33 @@ with tab3:
 # ==================== 4. 三月全家補運及補財庫 ====================
 with tab4:
   st.header("💰 三月全家補運及補財庫報名管理")
+  # *修改不保留預設值：三月全家補運及補財庫表單（tab4）
+  year_m = st.number_input(
+      "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_ma"
+  )
+  current_march = get_activity_year_counts(
+      st.session_state.data_march,
+      year_m,
+      ["全家補運人數", "補財庫人數"],
+  )
 
   with st.form("form_march"):
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
-      year_m = st.number_input(
-          "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_ma"
+      count_m_fortune = st.number_input(
+          "全家補運人數",
+          min_value=0,
+          value=current_march["全家補運人數"],
+          step=1,
+          key=f"count_m_fortune_{year_m}",
       )
     with col2:
-      count_m_fortune = st.number_input(
-          "全家補運人數", min_value=0, value=160, step=1
-      )
-    with col3:
       count_m_wealth = st.number_input(
-          "補財庫人數", min_value=0, value=110, step=1
+          "補財庫人數",
+          min_value=0,
+          value=current_march["補財庫人數"],
+          step=1,
+          key=f"count_m_wealth_{year_m}",
       )
 
     submitted_m = st.form_submit_button("新增 / 更新三月補運資料")
@@ -839,11 +921,9 @@ with tab5:
       "年份", min_value=2000, max_value=2100, value=2027, step=1, key="y_pe"
   )
   df_p = st.session_state.data_personal
-  existing_personal = df_p.loc[df_p["年份"] == year_p]
-  current_personal = (
-      existing_personal.iloc[0]
-      if not existing_personal.empty
-      else pd.Series({column: 0 for column in personal_count_columns})
+  # *修改不保留預設值：個人補運表單改用 get_activity_year_counts
+  current_personal = get_activity_year_counts(
+      df_p, year_p, personal_count_columns
   )
 
   with st.form("form_personal"):
@@ -852,28 +932,28 @@ with tab5:
       p_june_fortune = st.number_input(
           "六月補運人數",
           min_value=0,
-          value=int(current_personal["六月補運人數"]),
+          value=current_personal["六月補運人數"],
           key=f"p_june_fortune_{year_p}",
       )
     with col2:
       p_september_fortune = st.number_input(
           "九月補運人數",
           min_value=0,
-          value=int(current_personal["九月補運人數"]),
+          value=current_personal["九月補運人數"],
           key=f"p_september_fortune_{year_p}",
       )
     with col3:
       p_june_wealth = st.number_input(
           "六月補財庫人數",
           min_value=0,
-          value=int(current_personal["六月補財庫人數"]),
+          value=current_personal["六月補財庫人數"],
           key=f"p_june_wealth_{year_p}",
       )
     with col4:
       p_september_wealth = st.number_input(
           "九月補財庫人數",
           min_value=0,
-          value=int(current_personal["九月補財庫人數"]),
+          value=current_personal["九月補財庫人數"],
           key=f"p_september_wealth_{year_p}",
       )
 
@@ -967,16 +1047,23 @@ with tab5:
 # ==================== 6. 普度 ====================
 with tab6:
   st.header("🙏 普度報名管理")
+  # *修改不保留預設值：普度表單（tab6）
+  year_pudu = st.number_input(
+      "年份", min_value=2000, max_value=2100, value=2026, step=1, key="y_pudu"
+  )
+  current_pudu = get_activity_year_counts(
+      st.session_state.data_pudu, year_pudu, ["普度人數"]
+  )
 
   with st.form("form_pudu"):
     col1, col2 = st.columns(2)
-    with col1:
-      year_pudu = st.number_input(
-          "年份", min_value=2000, max_value=2100, value=2026, step=1, key="y_pudu"
-      )
     with col2:
       count_pudu = st.number_input(
-          "普度人數", min_value=0, value=150, step=1, key="c_pudu"
+          "普度人數",
+          min_value=0,
+          value=current_pudu["普度人數"],
+          step=1,
+          key=f"c_pudu_{year_pudu}",
       )
 
     submitted_pudu = st.form_submit_button("新增 / 更新普度資料")
