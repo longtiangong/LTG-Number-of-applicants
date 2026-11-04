@@ -275,7 +275,7 @@ st.set_page_config(
     page_title="龍天宮歷年活動報名人數系統", page_icon="🏮", layout="wide"
 )
 
-app_version = "1.0.0"
+app_version = "20261104"
 st.title(f"🏮 龍天宮歷年活動報名人數統計與分佈系統（{app_version}）")
 
 try:
