@@ -2,3 +2,4 @@ app_data.sqlite3*
 .streamlit/secrets.toml
 
 app copy.py
+Obsolete_app copy.py
